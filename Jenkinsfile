@@ -11,7 +11,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git 'https://github.com/shinmaheshwari/streamingapp-devops-platform.git'
+                git 'git@github.com:shinmaheshwari/streamingapp-devops-platform.git'
             }
         }
 
