@@ -1,18 +1,11 @@
-FROM node:20-alpine
-
+FROM node:18-alpine AS build
 WORKDIR /app
-
 COPY package*.json ./
-
-RUN npm install --omit=dev
-
+RUN npm install --production
 COPY . .
 
-RUN addgroup -S appgroup && \
-    adduser -S appuser -G appgroup
-
-USER appuser
-
-EXPOSE 3001
-
-CMD ["node","index.js"]
+FROM node:18-alpine
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 3002
+CMD ["node", "index.js"]
