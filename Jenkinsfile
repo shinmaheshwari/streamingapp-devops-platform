@@ -21,11 +21,12 @@ pipeline {
 
         stage('Build Images') {
             steps {
-                sh "docker build -t ${HELLO_REPO}:${IMAGE_TAG} ./helloService"
-                sh "docker build -t ${PROFILE_REPO}:${IMAGE_TAG} ./profileService"
-                sh "docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} ./frontend"
-            }
+        	sh "docker build -t ${HELLO_REPO}:${IMAGE_TAG} ./backend/helloService"
+        	sh "docker build -t ${PROFILE_REPO}:${IMAGE_TAG} ./backend/profileService"
+        	sh "docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} ./frontend"
+	    }
         }
+
 
         stage('Login to ECR') {
             steps {
