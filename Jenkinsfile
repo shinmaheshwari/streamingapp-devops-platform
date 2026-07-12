@@ -76,7 +76,8 @@ pipeline {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
                 sh """
                     aws sns publish --topic-arn ${SNS_TOPIC_ARN} \
-                      --message 'Deployment SUCCESS: Build #${BUILD_NUMBER}' --region ${AWS_REGION}
+                      --message '{"version":"1.0","source":"custom","content":{"textType":"client-markdown","title":"Deployment SUCCESS","description":"Build #${BUILD_NUMBER} succeeded — images pushed to ECR and deployed to EKS."}}' \
+                      --region ${AWS_REGION}
                 """
             }
             echo "Build #${BUILD_NUMBER} succeeded — images pushed to ECR and deployed to EKS."
@@ -85,7 +86,8 @@ pipeline {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
                 sh """
                     aws sns publish --topic-arn ${SNS_TOPIC_ARN} \
-                      --message 'Deployment FAILED: Build #${BUILD_NUMBER}' --region ${AWS_REGION}
+                      --message '{"version":"1.0","source":"custom","content":{"textType":"client-markdown","title":"Deployment FAILED","description":"Build #${BUILD_NUMBER} failed. Check Jenkins console output for details."}}' \
+                      --region ${AWS_REGION}
                 """
             }
             echo "Build #${BUILD_NUMBER} failed."
