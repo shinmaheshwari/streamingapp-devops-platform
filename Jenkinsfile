@@ -49,6 +49,17 @@ pipeline {
                 """
             }
         }
+	
+	stage('Deploy to EKS') {
+ 	   steps {
+        	sh """
+            	    helm upgrade --install streamingapp ./streamingapp-chart \
+                    --set helloService.tag=${IMAGE_TAG} \
+                    --set profileService.tag=${IMAGE_TAG} \
+                    --set frontend.tag=${IMAGE_TAG}
+       		"""
+   	    }
+	}
     }
 
     post {
