@@ -15,6 +15,12 @@ pipeline {
 
     stages {
 
+        stage('Cleanup Old Images') {
+            steps {
+                sh 'docker system prune -a -f --filter "until=24h" || true'
+            }
+        }
+
         stage('Checkout') {
             steps {
                 retry(conditions: [nonresumable()], count: 2) {
@@ -72,6 +78,9 @@ pipeline {
     }
 
     post {
+        always {
+            sh 'docker image prune -f || true'
+        }
         success {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
                 sh """
@@ -94,4 +103,3 @@ pipeline {
         }
     }
 }
-
