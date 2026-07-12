@@ -1,17 +1,17 @@
 helloService:
-  image: 562904760755.dkr.ecr.us-east-1.amazonaws.com/streamingapp-helloservice
+  image: 562904760755.dkr.ecr.ap-south-1.amazonaws.com/streamingapp-helloservice
   tag: latest
   port: 3001
   replicas: 2
 
 profileService:
-  image: 562904760755.dkr.ecr.us-east-1.amazonaws.com/streamingapp-profileservice
+  image: 562904760755.dkr.ecr.ap-south-1.amazonaws.com/streamingapp-profileservice
   tag: latest
   port: 3002
   replicas: 2
 
 frontend:
-  image: 562904760755.dkr.ecr.us-east-1.amazonaws.com/streamingapp-frontend
+  image: 562904760755.dkr.ecr.ap-south-1.amazonaws.com/streamingapp-frontend
   tag: latest
   port: 80
   replicas: 2

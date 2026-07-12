@@ -10,23 +10,20 @@ pipeline {
         FRONTEND_REPO   = 'streamingapp-frontend'
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
         MONGO_URL       = credentials('mongo-url')
+        SNS_TOPIC_ARN   = "arn:aws:sns:${AWS_REGION}:${ECR_ACCOUNT_ID}:streamingapp-deploy-notifications"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'git@github.com:shinmaheshwari/streamingapp-devops-platform.git', credentialsId: 'github-ssh'
+                retry(conditions: [nonresumable()], count: 2) {
+                    git branch: 'main',
+                        url: 'git@github.com:shinmaheshwari/streamingapp-devops-platform.git',
+                        credentialsId: 'github-creds'
+                }
             }
         }
-
-        stage('Build Images') {
-            steps {
-        	sh "docker build -t ${HELLO_REPO}:${IMAGE_TAG} ./backend/helloService"
-        	sh "docker build -t ${PROFILE_REPO}:${IMAGE_TAG} ./backend/profileService"
-        	sh "docker build -t ${FRONTEND_REPO}:${IMAGE_TAG} ./frontend"
-	    }
-        }
-
 
         stage('Login to ECR') {
             steps {
@@ -36,38 +33,63 @@ pipeline {
             }
         }
 
-        stage('Push Images to ECR') {
+        stage('Build & Push Images') {
             steps {
                 sh """
-                    docker tag ${HELLO_REPO}:${IMAGE_TAG} ${ECR_REGISTRY}/${HELLO_REPO}:${IMAGE_TAG}
-                    docker tag ${PROFILE_REPO}:${IMAGE_TAG} ${ECR_REGISTRY}/${PROFILE_REPO}:${IMAGE_TAG}
-                    docker tag ${FRONTEND_REPO}:${IMAGE_TAG} ${ECR_REGISTRY}/${FRONTEND_REPO}:${IMAGE_TAG}
-
-                    docker push ${ECR_REGISTRY}/${HELLO_REPO}:${IMAGE_TAG}
-                    docker push ${ECR_REGISTRY}/${PROFILE_REPO}:${IMAGE_TAG}
-                    docker push ${ECR_REGISTRY}/${FRONTEND_REPO}:${IMAGE_TAG}
+                    docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
+                      -t ${ECR_REGISTRY}/${HELLO_REPO}:${IMAGE_TAG} \
+                      -t ${ECR_REGISTRY}/${HELLO_REPO}:latest \
+                      --push ./backend/helloService
+                """
+                sh """
+                    docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
+                      -t ${ECR_REGISTRY}/${PROFILE_REPO}:${IMAGE_TAG} \
+                      -t ${ECR_REGISTRY}/${PROFILE_REPO}:latest \
+                      --push ./backend/profileService
+                """
+                sh """
+                    docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
+                      -t ${ECR_REGISTRY}/${FRONTEND_REPO}:${IMAGE_TAG} \
+                      -t ${ECR_REGISTRY}/${FRONTEND_REPO}:latest \
+                      --push ./frontend
                 """
             }
         }
-	
-	stage('Deploy to EKS') {
- 	   steps {
-        	sh """
-            	    helm upgrade --install streamingapp ./streamingapp-chart \
-                    --set helloService.tag=${IMAGE_TAG} \
-                    --set profileService.tag=${IMAGE_TAG} \
-                    --set frontend.tag=${IMAGE_TAG}
-       		"""
-   	    }
-	}
+
+        stage('Deploy to EKS') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                    sh "aws eks update-kubeconfig --name streamingapp-cluster --region ${AWS_REGION}"
+                    sh """
+                        helm upgrade --install streamingapp ./streamingapp-chart \
+                          --set helloService.tag=${IMAGE_TAG} \
+                          --set profileService.tag=${IMAGE_TAG} \
+                          --set frontend.tag=${IMAGE_TAG}
+                    """
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo "Build #${BUILD_NUMBER} succeeded and pushed to ECR."
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                sh """
+                    aws sns publish --topic-arn ${SNS_TOPIC_ARN} \
+                      --message 'Deployment SUCCESS: Build #${BUILD_NUMBER}' --region ${AWS_REGION}
+                """
+            }
+            echo "Build #${BUILD_NUMBER} succeeded — images pushed to ECR and deployed to EKS."
         }
         failure {
+            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                sh """
+                    aws sns publish --topic-arn ${SNS_TOPIC_ARN} \
+                      --message 'Deployment FAILED: Build #${BUILD_NUMBER}' --region ${AWS_REGION}
+                """
+            }
             echo "Build #${BUILD_NUMBER} failed."
         }
     }
 }
+
